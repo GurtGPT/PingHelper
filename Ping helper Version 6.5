@@ -1,0 +1,213 @@
+--// PING HELPER V6.5 (DRIP EDITION) //
+
+pcall(function()
+    game.CoreGui:FindFirstChild("PingHelperV65"):Destroy()
+end)
+
+repeat task.wait() until game:IsLoaded()
+task.wait(2)
+
+local Players = game:GetService("Players")
+local TeleportService = game:GetService("TeleportService")
+local Stats = game:GetService("Stats")
+local StarterGui = game:GetService("StarterGui")
+local TweenService = game:GetService("TweenService")
+
+local player = Players.LocalPlayer
+local placeId = game.PlaceId
+
+-- SETTINGS
+local DEFAULT_TARGET = 80
+local MAX_HOPS = 15
+local STABLE_TIME = 3
+
+-- DATA
+local pingHistory = {}
+local bestPing = math.huge
+local hopCount = 0
+local autoMode = false
+local stableCounter = 0
+local lastPing = 0
+
+-- 🔥 FIXED PING FUNCTION
+local function getPing()
+    local success, ping = pcall(function()
+        return Stats.Network.ServerStatsItem["Data Ping"]:GetValue()
+    end)
+
+    if success and ping then
+        local uiPing = ping * 0.5
+        lastPing = (lastPing * 0.7) + (uiPing * 0.3)
+        return math.floor(lastPing)
+    end
+end
+
+local function notify(msg)
+    pcall(function()
+        StarterGui:SetCore("SendNotification", {
+            Title = "Ping AI 😈",
+            Text = msg,
+            Duration = 5
+        })
+    end)
+end
+
+-- 🌈 GUI BUILD
+local gui = Instance.new("ScreenGui", game.CoreGui)
+gui.Name = "PingHelperV65"
+
+local frame = Instance.new("Frame", gui)
+frame.Size = UDim2.new(0, 320, 0, 260)
+frame.Position = UDim2.new(0.35, 0, 0.3, 0)
+frame.BackgroundColor3 = Color3.fromRGB(18,18,18)
+frame.Active = true
+frame.Draggable = true
+
+-- rounded
+local corner = Instance.new("UICorner", frame)
+corner.CornerRadius = UDim.new(0, 12)
+
+-- title
+local title = Instance.new("TextLabel", frame)
+title.Size = UDim2.new(1,0,0,30)
+title.Text = "⚡ Ping AI V6.5"
+title.BackgroundTransparency = 1
+title.TextColor3 = Color3.fromRGB(255,255,255)
+title.TextScaled = true
+
+-- ping label
+local pingLabel = Instance.new("TextLabel", frame)
+pingLabel.Size = UDim2.new(1,0,0,40)
+pingLabel.Position = UDim2.new(0,0,0.15,0)
+pingLabel.BackgroundTransparency = 1
+pingLabel.TextScaled = true
+
+-- info
+local infoLabel = Instance.new("TextLabel", frame)
+infoLabel.Size = UDim2.new(1,0,0,25)
+infoLabel.Position = UDim2.new(0,0,0.3,0)
+infoLabel.BackgroundTransparency = 1
+infoLabel.TextScaled = true
+infoLabel.TextColor3 = Color3.fromRGB(200,200,200)
+
+-- status
+local statusLabel = Instance.new("TextLabel", frame)
+statusLabel.Size = UDim2.new(1,0,0,25)
+statusLabel.Position = UDim2.new(0,0,0.4,0)
+statusLabel.BackgroundTransparency = 1
+statusLabel.TextScaled = true
+
+-- target box
+local targetBox = Instance.new("TextBox", frame)
+targetBox.Size = UDim2.new(0.5,0,0,30)
+targetBox.Position = UDim2.new(0.25,0,0.55,0)
+targetBox.Text = tostring(DEFAULT_TARGET)
+targetBox.BackgroundColor3 = Color3.fromRGB(35,35,35)
+targetBox.TextColor3 = Color3.new(1,1,1)
+targetBox.TextScaled = true
+Instance.new("UICorner", targetBox).CornerRadius = UDim.new(0,8)
+
+-- button creator
+local function makeBtn(text, y)
+    local b = Instance.new("TextButton", frame)
+    b.Size = UDim2.new(0.8,0,0,30)
+    b.Position = UDim2.new(0.1,0,y,0)
+    b.Text = text
+    b.BackgroundColor3 = Color3.fromRGB(40,40,40)
+    b.TextColor3 = Color3.new(1,1,1)
+    b.TextScaled = true
+    Instance.new("UICorner", b).CornerRadius = UDim.new(0,8)
+
+    -- hover animation 😈
+    b.MouseEnter:Connect(function()
+        TweenService:Create(b, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(60,60,60)}):Play()
+    end)
+    b.MouseLeave:Connect(function()
+        TweenService:Create(b, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(40,40,40)}):Play()
+    end)
+
+    return b
+end
+
+local autoBtn = makeBtn("🎯 Start Hunt", 0.7)
+local hopBtn = makeBtn("🌍 Hop", 0.82)
+
+-- hop function
+local function hop()
+    TeleportService:Teleport(placeId, player)
+end
+
+-- MAIN LOOP 😈
+task.spawn(function()
+    while task.wait(1) do
+        local ping = getPing()
+        if not ping then continue end
+
+        table.insert(pingHistory, ping)
+        if #pingHistory > 10 then table.remove(pingHistory,1) end
+
+        if ping < bestPing then bestPing = ping end
+
+        local avg = 0
+        for _,v in pairs(pingHistory) do avg += v end
+        avg = math.floor(avg / #pingHistory)
+
+        local target = tonumber(targetBox.Text) or DEFAULT_TARGET
+        if target < 40 then target = 40 end
+
+        -- 🎨 COLORS
+        if ping <= 80 then
+            pingLabel.TextColor3 = Color3.fromRGB(0,255,120)
+        elseif ping <= 150 then
+            pingLabel.TextColor3 = Color3.fromRGB(255,200,0)
+        else
+            pingLabel.TextColor3 = Color3.fromRGB(255,80,80)
+        end
+
+        pingLabel.Text = ping.." ms"
+        infoLabel.Text = "Best: "..bestPing.." | Avg: "..avg
+
+        -- 💣 SELF-DESTRUCT FIXED
+        if autoMode and avg <= target then
+            notify("teleport for what?? 😭 you're already at "..avg.."ms 💀")
+            gui:Destroy()
+            break
+        end
+
+        if autoMode then
+            if avg <= target then
+                stableCounter += 1
+            else
+                stableCounter = 0
+            end
+
+            if stableCounter >= STABLE_TIME then
+                notify("😈 Locked "..avg.."ms server")
+                gui:Destroy()
+                break
+            end
+
+            if hopCount >= MAX_HOPS then
+                notify("💀 Best found: "..bestPing.."ms")
+                autoMode = false
+                break
+            end
+
+            statusLabel.Text = "🔍 Hunting ("..hopCount..")"
+            hopCount += 1
+            task.wait(1)
+            hop()
+            break
+        else
+            statusLabel.Text = "Idle"
+        end
+    end
+end)
+
+autoBtn.MouseButton1Click:Connect(function()
+    autoMode = true
+    hopCount = 0
+    stableCounter = 0
+end)
+
+hopBtn.MouseButton1Click:Connect(hop)
